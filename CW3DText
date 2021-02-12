@@ -1,0 +1,118 @@
+global string $UICtrl;
+global string $tmpTextField;
+global string $inputedText;
+global float $speed;
+global string $UIName = "Course Work";
+
+// procedure to convert a string to hex values, separated by a space
+// code for the string to hex convertion from https://forums.cgsociety.org/t/changing-attributes-of-3d-type-using-mel-or-python/1833281/4
+global proc string getSpacedHexFromString(string $text)
+{
+    string $hexVersion = "";
+    for ($i = 1; $i <= size($text); $i++){
+        string $character = `substring $text $i $i `;
+        string $hexCharacter = python("\"" + $character + "\".encode(\"hex\")");
+        $hexVersion = $hexVersion + " " + $hexCharacter;   
+    }
+    return $hexVersion;
+}
+global proc string UpdateText()
+{
+    global string $tmpTextField;
+    string $value;
+    
+    $value = `textFieldGrp -q -text $tmpTextField`;
+    print($value);
+
+    return $value;
+}
+
+global proc Display3DText()
+{   
+    
+    if(`objExists typeMesh1`)
+    {
+        select typeMesh1;
+        delete typeMesh1;
+    }
+    typeCreateText;
+
+    string $text = UpdateText();
+
+    string $hexText = getSpacedHexFromString($text);
+    
+    string $type3d[] = `listConnections -type "type"`;
+
+    setAttr -type "string" ($type3d[0] + ".textInput") ($hexText);
+    xform -cp typeMesh1;
+}
+
+global proc CreatePath()
+{
+    global float $speed;
+    curve -n path -p 0 0 0 -p 60 120 60 -p 120 0 120 -p 180 120 180 -d 2;
+    float $curveLenght = `arclen path`;
+    $speed = $curveLenght/1.5;
+}
+
+global proc ApplyPathAnimation()
+{
+    select -r typeMesh1;
+    select -tgl path;
+    pathAnimation -stu 0 -etu 3000 -fa z -ua y -follow on;
+    playbackOptions -min 1 -max 3000;
+}
+
+global proc AnimateText()
+{
+    CreatePath();
+    ApplyPathAnimation();
+}
+
+global proc UI ()
+{
+    global string $tmpTextField;
+    global string $UICtrl;
+
+    columnLayout -adjustableColumn true;
+        frameLayout -label "Command Panel" -collapsable true;
+            columnLayout -columnAttach "both" 5 -rowSpacing 5 -columnWidth 300;
+                $tmpTextField = `textFieldGrp   -changeCommand "UpdateText()"
+                                                -text "Input some text"
+                                                -label "Text to be displayed"`;
+
+            button -label "Can we make it work?" -command "Display3DText";
+            button -label "testAnimation" -command "AnimateText";
+            setParent ..;
+        setParent ..;
+        frameLayout -label "Animation Commands" -collapsable true;
+            columnLayout -columnAttach "both" 5 -rowSpacing 5 -columnWidth 300;
+                button -label "Play" -command "play -state on;";	
+                button -label "Stop" -command "play -state off;";	
+                button -label "New scene" -command "file -f -new;";
+                button -label "Close the window" -command ("deleteUI -window " + $UICtrl);
+            setParent ..;
+        setParent ..;
+
+    setParent ..;
+}
+
+// https://www.fundza.com/mel/queryUIWidgets/index.html 
+global proc MainProcedure()
+{
+    global string $UICtrl;
+    global string $UIName;
+    int $exist = `window -exists $UICtrl`; 
+
+    if($exist == 0)
+    {
+        $UICtrl = `window   -w 300 -h 200
+                            -retain
+                            -topLeftCorner 500 500
+                            -title $UIName`;
+        UI();
+    }
+    showWindow $UICtrl;
+}
+
+MainProcedure();
